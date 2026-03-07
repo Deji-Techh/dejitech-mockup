@@ -12,7 +12,12 @@ from pathlib import Path
 from typing import Optional, Any
 from dataclasses import dataclass
 
-import ffmpeg
+try:
+    import ffmpeg
+    FFMPEG_AVAILABLE = True
+except ImportError:
+    ffmpeg = None  # type: ignore
+    FFMPEG_AVAILABLE = False
 
 from ..constants import (
     ExportFormat,
@@ -131,6 +136,9 @@ def export_video(
     """
     Export the composed video with the given configuration.
     """
+    if not FFMPEG_AVAILABLE:
+        raise RuntimeError("ffmpeg-python is not installed. Run: pip install ffmpeg-python")
+    
     config = apply_platform_settings(config)
     
     try:

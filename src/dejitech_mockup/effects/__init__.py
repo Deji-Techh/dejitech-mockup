@@ -7,7 +7,10 @@ from __future__ import annotations
 from typing import Optional, Any
 from dataclasses import dataclass, field
 
-import ffmpeg
+try:
+    import ffmpeg
+except ImportError:
+    ffmpeg = None  # type: ignore
 
 from ..constants import (
     IntroAnimation,

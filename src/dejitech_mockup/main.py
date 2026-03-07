@@ -18,7 +18,13 @@ from typing import Annotated, Optional, List
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import ffmpeg
+try:
+    import ffmpeg
+    FFMPEG_AVAILABLE = True
+except ImportError:
+    ffmpeg = None  # type: ignore
+    FFMPEG_AVAILABLE = False
+
 import typer
 from rich import print as rprint
 from rich.console import Console
@@ -278,6 +284,18 @@ def render(
         dejitech-mockup render recording.mp4 --bg-gradient "#000:#333" --intro fade
         dejitech-mockup render recording.mp4 --preset tiktok
     """
+    # Check ffmpeg-python is available
+    if not FFMPEG_AVAILABLE:
+        console.print(Panel(
+            "[red]ffmpeg-python module is not installed![/]\n\n"
+            "Install it with:\n"
+            "  [cyan]pip install ffmpeg-python[/]\n\n"
+            "Also ensure FFmpeg is installed on your system:\n"
+            "  [cyan]sudo pacman -S ffmpeg[/]  (Arch Linux)",
+            title="Missing Dependency",
+        ))
+        raise typer.Exit(1)
+    
     ensure_dirs()
     start_time = time.time()
     
