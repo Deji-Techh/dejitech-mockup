@@ -1,0 +1,45 @@
+# Don't include these in the npm package
+.git/
+.gitignore
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dev files
+*.md
+!README.md
+pyproject.toml
+project_structure.md
+
+# Test files
+tests/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+
+# Temp files
+.temp_*
+*_palette.png

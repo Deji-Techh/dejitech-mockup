@@ -1,0 +1,47 @@
+{
+  "name": "dejitech-mockup",
+  "version": "2.0.0",
+  "description": "Professional CLI tool for overlaying screen recordings onto device mockup frames",
+  "keywords": [
+    "mockup",
+    "device",
+    "video",
+    "screen-recording",
+    "ffmpeg",
+    "iphone",
+    "android",
+    "cli"
+  ],
+  "author": "Deji-Tech",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Deji-Tech/dejitech-mockup.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Deji-Tech/dejitech-mockup/issues"
+  },
+  "homepage": "https://github.com/Deji-Tech/dejitech-mockup#readme",
+  "bin": {
+    "dejitech-mockup": "bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "assets/",
+    "requirements.txt",
+    "setup.py"
+  ],
+  "scripts": {
+    "postinstall": "node bin/postinstall.js",
+    "test": "node bin/cli.js --help"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ]
+}

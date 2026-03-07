@@ -85,3 +85,7 @@ Thumbs.db
 # Temporary files
 .temp_*
 *_palette.png
+
+# Node
+node_modules/
+package-lock.json
