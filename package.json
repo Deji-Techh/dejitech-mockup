@@ -1,6 +1,6 @@
 {
   "name": "dejitech-mockup",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Professional CLI tool for overlaying screen recordings onto device mockup frames",
   "keywords": [
     "mockup",

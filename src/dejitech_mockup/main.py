@@ -649,6 +649,9 @@ def render(
             boxborderw=5,
         )
     
+    # Ensure output is in yuv420p format for maximum compatibility
+    composed = composed.filter("format", pix_fmts="yuv420p")
+    
     # Audio processing
     audio_stream = None
     if not mute and video_info.has_audio:
@@ -693,6 +696,8 @@ def render(
             "preset": "ultrafast",
             "crf": crf_value,
             "pix_fmt": "yuv420p",
+            "profile:v": "high",
+            "level": "4.1",
             "movflags": "+faststart",
         })
     
