@@ -146,33 +146,54 @@ def create_background(
         # Gradient background
         color1, color2 = parse_gradient(config.bg_gradient)
         
+        # Convert hex colors to RGB values for geq filter
+        def hex_to_rgb(hex_color):
+            # Remove 0x prefix if present
+            hex_color = hex_color.replace("0x", "").replace("#", "")
+            return int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+        
+        r1, g1, b1 = hex_to_rgb(color1)
+        r2, g2, b2 = hex_to_rgb(color2)
+        
+        # Create base color
+        bg = ffmpeg.input(
+            f"color=c={color1}:s={width}x{height}:r=30:d={duration}",
+            f="lavfi"
+        )
+        
         if config.gradient_direction == GradientDirection.RADIAL:
-            # Radial gradient using geq filter
-            bg = ffmpeg.input(
-                f"color=c={color1}:s={width}x{height}:r=30:d={duration}",
-                f="lavfi"
-            )
-            # Apply radial gradient effect
+            # Radial gradient - center to edges
             bg = bg.filter(
                 "geq",
-                r=f"'lerp({int(color1[2:4], 16)},{int(color2[2:4], 16)},sqrt((X-W/2)^2+(Y-H/2)^2)/sqrt((W/2)^2+(H/2)^2))'",
-                g=f"'lerp({int(color1[4:6], 16)},{int(color2[4:6], 16)},sqrt((X-W/2)^2+(Y-H/2)^2)/sqrt((W/2)^2+(H/2)^2))'",
-                b=f"'lerp({int(color1[6:8], 16)},{int(color2[6:8], 16)},sqrt((X-W/2)^2+(Y-H/2)^2)/sqrt((W/2)^2+(H/2)^2))'"
+                r=f"lerp({r1},{r2},sqrt(pow(X-W/2,2)+pow(Y-H/2,2))/sqrt(pow(W/2,2)+pow(H/2,2)))",
+                g=f"lerp({g1},{g2},sqrt(pow(X-W/2,2)+pow(Y-H/2,2))/sqrt(pow(W/2,2)+pow(H/2,2)))",
+                b=f"lerp({b1},{b2},sqrt(pow(X-W/2,2)+pow(Y-H/2,2))/sqrt(pow(W/2,2)+pow(H/2,2)))"
+            )
+        elif config.gradient_direction == GradientDirection.HORIZONTAL:
+            # Left to right gradient
+            bg = bg.filter(
+                "geq",
+                r=f"lerp({r1},{r2},X/W)",
+                g=f"lerp({g1},{g2},X/W)",
+                b=f"lerp({b1},{b2},X/W)"
+            )
+        elif config.gradient_direction == GradientDirection.DIAGONAL:
+            # Top-left to bottom-right diagonal gradient
+            bg = bg.filter(
+                "geq",
+                r=f"lerp({r1},{r2},(X+Y)/(W+H))",
+                g=f"lerp({g1},{g2},(X+Y)/(W+H))",
+                b=f"lerp({b1},{b2},(X+Y)/(W+H))"
             )
         else:
-            # Linear gradients using gradients filter
-            if config.gradient_direction == GradientDirection.HORIZONTAL:
-                direction = "0"
-            elif config.gradient_direction == GradientDirection.DIAGONAL:
-                direction = "1"
-            else:  # VERTICAL
-                direction = "2"
-            
-            # Use color sources and blend
-            bg = ffmpeg.input(
-                f"color=c={color1}:s={width}x{height}:r=30:d={duration}",
-                f="lavfi"
+            # Vertical gradient (top to bottom) - default
+            bg = bg.filter(
+                "geq",
+                r=f"lerp({r1},{r2},Y/H)",
+                g=f"lerp({g1},{g2},Y/H)",
+                b=f"lerp({b1},{b2},Y/H)"
             )
+        
         return bg
     
     else:

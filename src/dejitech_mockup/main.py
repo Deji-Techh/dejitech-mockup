@@ -1380,18 +1380,39 @@ def select_effects() -> dict:
         effects['intro'] = "none"
     
     # Background
-    if Confirm.ask("  [cyan]•[/cyan] Custom background?", default=False):
-        bg_choices = ["gradient", "blur", "color", "image"]
-        console.print(f"    [dim]Options: {', '.join(bg_choices)}[/dim]")
-        bg_type = Prompt.ask("    Background type", default="gradient")
-        effects['bg_type'] = bg_type
+    if Confirm.ask("  [cyan]•[/cyan] Custom background?", default=True):
+        console.print("\n    [bold]Background presets:[/bold]")
+        bg_presets = [
+            ("1", "Dark Pro", "#0a0a0a:#1a1a2e", "Dark gradient (like X/Twitter)"),
+            ("2", "Midnight", "#000000:#0f0f23", "Pure black to dark blue"),
+            ("3", "Ocean", "#0f2027:#2c5364", "Deep ocean gradient"),
+            ("4", "Sunset", "#232526:#414345", "Dark gray gradient"),
+            ("5", "Purple Haze", "#1a0a2e:#2d1b4e", "Dark purple gradient"),
+            ("6", "Forest", "#0a1a0a:#1a2e1a", "Dark green gradient"),
+            ("7", "Solid Black", "#000000:#000000", "Pure black"),
+            ("8", "Custom", None, "Enter your own colors"),
+        ]
         
-        if bg_type == "gradient":
-            effects['bg_gradient'] = Prompt.ask("    Gradient (e.g., #000:#333)", default="#1a1a2e:#16213e")
-        elif bg_type == "color":
-            effects['bg_color'] = Prompt.ask("    Color (hex)", default="#000000")
-        elif bg_type == "blur":
-            effects['bg_blur'] = True
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_column("#", style="cyan", width=4)
+        table.add_column("Name", style="bold", width=12)
+        table.add_column("Description", style="dim")
+        
+        for num, name, _, desc in bg_presets:
+            table.add_row(f"[{num}]", name, desc)
+        
+        console.print(table)
+        
+        choice = Prompt.ask("\n    [cyan]>[/cyan] Select background", default="1")
+        
+        if choice == "8":
+            effects['bg_gradient'] = Prompt.ask("    Gradient (#color1:#color2)", default="#0a0a0a:#1a1a2e")
+        elif choice.isdigit() and 1 <= int(choice) <= 7:
+            effects['bg_gradient'] = bg_presets[int(choice) - 1][2]
+        else:
+            effects['bg_gradient'] = bg_presets[0][2]  # Default to Dark Pro
+        
+        console.print(f"    [green]✓[/green] Background: {effects['bg_gradient']}")
     
     console.print()
     return effects
