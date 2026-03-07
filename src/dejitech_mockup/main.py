@@ -527,12 +527,35 @@ def render(
         video_input.video if bg_blur else None,
     )
     
+    # Determine how many times we need to use vid_stream
+    # If shadow or reflection is enabled, we need to split the stream
+    needs_split = shadow or reflection
+    
+    if needs_split:
+        # Count outputs needed: 1 for main + 1 for shadow (if enabled) + 1 for reflection (if enabled)
+        num_outputs = 1 + (1 if shadow else 0) + (1 if reflection else 0)
+        split_streams = vid_stream.filter_multi_output('split', outputs=num_outputs)
+        
+        stream_idx = 0
+        main_stream = split_streams[stream_idx]
+        stream_idx += 1
+        
+        if shadow:
+            shadow_source = split_streams[stream_idx]
+            stream_idx += 1
+        
+        if reflection:
+            reflection_source = split_streams[stream_idx]
+            stream_idx += 1
+    else:
+        main_stream = vid_stream
+    
     # Apply shadow
     shadow_stream = None
     shadow_x, shadow_y = x_off, y_off
     if shadow:
-        # Create shadow layer
-        shadow_stream = vid_stream.filter(
+        # Create shadow layer from split stream
+        shadow_stream = shadow_source.filter(
             "colorchannelmixer",
             rr=0, rg=0, rb=0,
             gr=0, gg=0, gb=0,
@@ -545,15 +568,16 @@ def render(
     # Compose layers
     if shadow_stream is not None:
         composed = background.overlay(shadow_stream, x=shadow_x, y=shadow_y, shortest=1)
-        composed = composed.overlay(vid_stream, x=x_off, y=y_off)
+        composed = composed.overlay(main_stream, x=x_off, y=y_off)
     else:
-        composed = background.overlay(vid_stream, x=x_off, y=y_off, shortest=1)
+        composed = composed if 'composed' in dir() else background.overlay(main_stream, x=x_off, y=y_off, shortest=1)
+        composed = background.overlay(main_stream, x=x_off, y=y_off, shortest=1)
     
     # Add reflection
     if reflection:
-        # Create reflection (simplified - flip and fade)
+        # Create reflection from split stream
         reflect_h = int(frame_h * 0.2)
-        reflection_stream = vid_stream.filter("vflip")
+        reflection_stream = reflection_source.filter("vflip")
         reflection_stream = reflection_stream.filter("crop", w=scaled_w, h=reflect_h, x=0, y=0)
         composed = composed.overlay(
             reflection_stream,
