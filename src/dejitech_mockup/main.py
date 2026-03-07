@@ -480,8 +480,15 @@ def render(
     video_input = ffmpeg.input(str(video), **input_args)
     frame_input = ffmpeg.input(str(frame_path))
     
-    # Video stream with processing
-    vid_stream = video_input.video
+    # If bg_blur is enabled, we need to split the input video stream
+    # One branch for the blurred background, one for the main video
+    if bg_blur:
+        input_split = video_input.video.filter_multi_output('split', outputs=2)
+        vid_stream = input_split[0]
+        bg_blur_stream = input_split[1]
+    else:
+        vid_stream = video_input.video
+        bg_blur_stream = None
     
     # Apply speed change
     if speed != 1.0:
@@ -524,7 +531,7 @@ def render(
         frame_w,
         frame_h,
         video_duration + 10,
-        video_input.video if bg_blur else None,
+        bg_blur_stream,
     )
     
     # Determine how many times we need to use vid_stream

@@ -1,6 +1,6 @@
 """DejiTech Mockup - Professional device mockup video generator."""
 
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 
 def main():
     """Entry point that imports main module on demand."""
