@@ -124,7 +124,7 @@ app = typer.Typer(
     help="[bold cyan]DejiTech Mockup[/] - Professional device mockup video generator",
     rich_markup_mode="rich",
     add_completion=True,
-    no_args_is_help=True,
+    no_args_is_help=False,
 )
 
 # Sub-command groups
@@ -1178,69 +1178,416 @@ def history(
 
 
 # ============================================================================
-# Interactive Mode
+# Interactive Mode (Beautiful TUI)
 # ============================================================================
+
+LOGO = """
+[bold cyan]
+    ██████╗ ███████╗     ██╗██╗████████╗███████╗ ██████╗██╗  ██╗
+    ██╔══██╗██╔════╝     ██║██║╚══██╔══╝██╔════╝██╔════╝██║  ██║
+    ██║  ██║█████╗       ██║██║   ██║   █████╗  ██║     ███████║
+    ██║  ██║██╔══╝  ██   ██║██║   ██║   ██╔══╝  ██║     ██╔══██║
+    ██████╔╝███████╗╚█████╔╝██║   ██║   ███████╗╚██████╗██║  ██║
+    ╚═════╝ ╚══════╝ ╚════╝ ╚═╝   ╚═╝   ╚══════╝ ╚═════╝╚═╝  ╚═╝
+                    [bold white]M O C K U P[/bold white]
+[/bold cyan]
+"""
+
+LOGO_SMALL = """[bold cyan]
+  ╭─────────────────────────────────────╮
+  │     [bold white]DejiTech Mockup[/bold white] [dim]v{version}[/dim]     │
+  │   [dim]Professional Device Mockups[/dim]    │
+  ╰─────────────────────────────────────╯
+[/bold cyan]"""
+
+
+def show_banner():
+    """Display the application banner."""
+    import shutil
+    term_width = shutil.get_terminal_size().columns
+    
+    if term_width >= 70:
+        console.print(LOGO)
+    else:
+        console.print(LOGO_SMALL.format(version=__version__))
+    
+    console.print(f"  [dim]v{__version__} • Type 'q' to quit • 'h' for help[/dim]\n")
+
+
+def interactive_menu():
+    """Show the main interactive menu."""
+    from rich.columns import Columns
+    
+    menu_items = [
+        ("1", "Create Mockup", "Render a video onto a device frame"),
+        ("2", "Batch Process", "Process multiple videos at once"),
+        ("3", "List Devices", "View available device frames"),
+        ("4", "Presets", "View and manage presets"),
+        ("5", "History", "View recent renders"),
+        ("6", "Settings", "Configure defaults"),
+        ("q", "Quit", "Exit the application"),
+    ]
+    
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column("Key", style="bold cyan", width=4)
+    table.add_column("Action", style="bold white", width=16)
+    table.add_column("Description", style="dim")
+    
+    for key, action, desc in menu_items:
+        table.add_row(f"[{key}]", action, desc)
+    
+    console.print(Panel(table, title="[bold]What would you like to do?[/bold]", border_style="cyan"))
+
+
+def select_video() -> Optional[Path]:
+    """Prompt user to select a video file."""
+    console.print("\n[bold cyan]Step 1:[/bold cyan] Select Video File\n")
+    
+    while True:
+        video_path = Prompt.ask(
+            "[cyan]>[/cyan] Paste video path (or drag & drop)",
+            default=""
+        )
+        
+        if video_path.lower() in ['q', 'quit', 'exit']:
+            return None
+        
+        if video_path.lower() in ['b', 'back']:
+            return None
+        
+        # Clean path (remove quotes if dragged)
+        video_path = video_path.strip().strip('"').strip("'")
+        
+        if not video_path:
+            console.print("[yellow]Please enter a video path[/yellow]")
+            continue
+        
+        video = Path(video_path)
+        
+        if not video.exists():
+            console.print(f"[red]File not found:[/red] {video_path}")
+            continue
+        
+        if video.suffix.lower() not in ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v']:
+            console.print(f"[yellow]Warning:[/yellow] Unusual video format: {video.suffix}")
+            if not Confirm.ask("Continue anyway?", default=True):
+                continue
+        
+        # Show video info
+        try:
+            info = get_media_info(video)
+            console.print(f"\n  [green]✓[/green] [bold]{video.name}[/bold]")
+            console.print(f"    [dim]{info.width}x{info.height} • {format_duration(info.duration)} • {format_size(video.stat().st_size)}[/dim]\n")
+        except Exception:
+            console.print(f"\n  [green]✓[/green] [bold]{video.name}[/bold]\n")
+        
+        return video
+
+
+def select_device() -> Optional[str]:
+    """Prompt user to select a device frame."""
+    console.print("[bold cyan]Step 2:[/bold cyan] Select Device Frame\n")
+    
+    devices = discover_devices()
+    
+    if not devices:
+        console.print(Panel(
+            f"[red]No device frames found![/red]\n\n"
+            f"Add PNG/JPG device frames to:\n"
+            f"[cyan]{ensure_assets_dir()}[/cyan]",
+            title="Missing Assets"
+        ))
+        return None
+    
+    # Show devices in a nice table
+    table = Table(show_header=True, box=None)
+    table.add_column("#", style="cyan", width=4)
+    table.add_column("Device", style="bold")
+    table.add_column("Size", style="dim")
+    
+    device_list = sorted(devices.items())
+    for i, (name, info) in enumerate(device_list, 1):
+        table.add_row(str(i), name, f"{info.width}x{info.height}")
+    
+    console.print(table)
+    console.print()
+    
+    while True:
+        choice = Prompt.ask(
+            "[cyan]>[/cyan] Enter device name or number",
+            default=device_list[0][0] if device_list else ""
+        )
+        
+        if choice.lower() in ['q', 'quit', 'exit', 'b', 'back']:
+            return None
+        
+        # Check if it's a number
+        if choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(device_list):
+                selected = device_list[idx][0]
+                console.print(f"\n  [green]✓[/green] Selected: [bold]{selected}[/bold]\n")
+                return selected
+            else:
+                console.print("[red]Invalid number[/red]")
+                continue
+        
+        # Check if it's a device name
+        if choice.lower() in devices:
+            console.print(f"\n  [green]✓[/green] Selected: [bold]{choice.lower()}[/bold]\n")
+            return choice.lower()
+        
+        console.print(f"[red]Device not found:[/red] {choice}")
+
+
+def select_effects() -> dict:
+    """Prompt user to select effects."""
+    console.print("[bold cyan]Step 3:[/bold cyan] Select Effects\n")
+    
+    effects = {}
+    
+    # Shadow
+    effects['shadow'] = Confirm.ask("  [cyan]•[/cyan] Add drop shadow?", default=True)
+    
+    # Reflection
+    effects['reflection'] = Confirm.ask("  [cyan]•[/cyan] Add reflection?", default=False)
+    
+    # Intro animation
+    if Confirm.ask("  [cyan]•[/cyan] Add intro animation?", default=False):
+        intro_choices = ["fade", "zoom", "slide-up", "slide-down", "bounce"]
+        console.print(f"    [dim]Options: {', '.join(intro_choices)}[/dim]")
+        intro = Prompt.ask("    Intro type", default="fade")
+        if intro in intro_choices:
+            effects['intro'] = intro
+        else:
+            effects['intro'] = "fade"
+    else:
+        effects['intro'] = "none"
+    
+    # Background
+    if Confirm.ask("  [cyan]•[/cyan] Custom background?", default=False):
+        bg_choices = ["gradient", "blur", "color", "image"]
+        console.print(f"    [dim]Options: {', '.join(bg_choices)}[/dim]")
+        bg_type = Prompt.ask("    Background type", default="gradient")
+        effects['bg_type'] = bg_type
+        
+        if bg_type == "gradient":
+            effects['bg_gradient'] = Prompt.ask("    Gradient (e.g., #000:#333)", default="#1a1a2e:#16213e")
+        elif bg_type == "color":
+            effects['bg_color'] = Prompt.ask("    Color (hex)", default="#000000")
+        elif bg_type == "blur":
+            effects['bg_blur'] = True
+    
+    console.print()
+    return effects
+
+
+def select_quality() -> dict:
+    """Prompt user to select quality settings."""
+    console.print("[bold cyan]Step 4:[/bold cyan] Quality & Export\n")
+    
+    settings = {}
+    
+    # Quality preset
+    quality_options = [
+        ("1", "medium", "Balanced quality and size (CRF 23)"),
+        ("2", "high", "High quality (CRF 18)"),
+        ("3", "ultra", "Best quality (CRF 12)"),
+        ("4", "4k", "4K Ultra HD resolution"),
+        ("5", "lossless", "Lossless quality (large file)"),
+    ]
+    
+    table = Table(show_header=False, box=None)
+    table.add_column("#", style="cyan", width=4)
+    table.add_column("Quality", style="bold", width=12)
+    table.add_column("Description", style="dim")
+    
+    for num, name, desc in quality_options:
+        table.add_row(f"[{num}]", name, desc)
+    
+    console.print(table)
+    
+    choice = Prompt.ask("\n  [cyan]>[/cyan] Select quality", default="2")
+    
+    if choice == "1":
+        settings['quality'] = Quality.MEDIUM
+    elif choice == "2":
+        settings['quality'] = Quality.HIGH
+    elif choice == "3":
+        settings['quality'] = Quality.ULTRA
+    elif choice == "4":
+        settings['quality'] = Quality.ULTRA
+        settings['resolution'] = Resolution.UHD
+    elif choice == "5":
+        settings['quality'] = Quality.LOSSLESS
+    else:
+        settings['quality'] = Quality.HIGH
+    
+    console.print(f"\n  [green]✓[/green] Quality: [bold]{settings['quality'].value}[/bold]")
+    if 'resolution' in settings:
+        console.print(f"  [green]✓[/green] Resolution: [bold]4K (3840x2160)[/bold]")
+    
+    # Hardware acceleration
+    if check_vaapi_available():
+        settings['hw'] = Confirm.ask("\n  [cyan]•[/cyan] Use GPU acceleration (faster)?", default=True)
+    else:
+        settings['hw'] = False
+    
+    console.print()
+    return settings
+
+
+def show_render_summary(video: Path, device: str, effects: dict, quality: dict) -> bool:
+    """Show render summary and confirm."""
+    console.print("[bold cyan]Summary:[/bold cyan]\n")
+    
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value", style="bold")
+    
+    table.add_row("Video", video.name)
+    table.add_row("Device", device)
+    table.add_row("Shadow", "Yes" if effects.get('shadow') else "No")
+    table.add_row("Reflection", "Yes" if effects.get('reflection') else "No")
+    table.add_row("Intro", effects.get('intro', 'none'))
+    table.add_row("Quality", quality.get('quality', Quality.HIGH).value)
+    if quality.get('resolution'):
+        table.add_row("Resolution", "4K")
+    table.add_row("GPU Accel", "Yes" if quality.get('hw') else "No")
+    
+    output_name = f"{video.stem}_mockup.mp4"
+    table.add_row("Output", output_name)
+    
+    console.print(Panel(table, border_style="cyan"))
+    
+    return Confirm.ask("\n[bold]Start rendering?[/bold]", default=True)
+
+
+def run_interactive_render(video: Path, device: str, effects: dict, quality_settings: dict):
+    """Execute the render with interactive settings."""
+    # Build the render call
+    render_kwargs = {
+        'video': video,
+        'device': device,
+        'shadow': effects.get('shadow', False),
+        'reflection': effects.get('reflection', False),
+        'quality': quality_settings.get('quality', Quality.HIGH),
+        'hw': quality_settings.get('hw', False),
+    }
+    
+    if effects.get('intro', 'none') != 'none':
+        render_kwargs['intro'] = IntroAnimation(effects['intro'])
+    
+    if effects.get('bg_gradient'):
+        render_kwargs['bg_gradient'] = effects['bg_gradient']
+    
+    if effects.get('bg_color'):
+        render_kwargs['bg_color'] = effects['bg_color']
+    
+    if effects.get('bg_blur'):
+        render_kwargs['bg_blur'] = True
+    
+    if quality_settings.get('resolution'):
+        render_kwargs['resolution'] = quality_settings['resolution']
+    
+    # Run render
+    render(**render_kwargs)
 
 
 @app.command()
 def interactive():
     """Launch interactive TUI wizard."""
-    console.print(Panel(
-        "[bold cyan]DejiTech Mockup[/] - Interactive Mode\n\n"
-        "Answer the prompts to configure your render.",
-        title="Welcome",
-    ))
+    run_interactive_tui()
+
+
+def run_interactive_tui():
+    """Main interactive TUI loop."""
+    show_banner()
     
-    # Get video file
-    video_path = Prompt.ask("Video file path")
-    video = Path(video_path)
-    
-    if not video.exists():
-        console.print(f"[red]File not found: {video}[/]")
-        raise typer.Exit(1)
-    
-    # Get device
-    devices = discover_devices()
-    device_names = list(devices.keys())
-    console.print(f"Available devices: {', '.join(device_names)}")
-    device = Prompt.ask("Device", default=DEFAULT_DEVICE)
-    
-    # Effects
-    use_shadow = Confirm.ask("Add shadow?", default=False)
-    use_intro = Confirm.ask("Add intro animation?", default=False)
-    
-    intro = IntroAnimation.NONE
-    if use_intro:
-        intro_choice = Prompt.ask(
-            "Intro type",
-            choices=["fade", "zoom", "slide-up"],
-            default="fade"
-        )
-        intro = IntroAnimation(intro_choice)
-    
-    # Quality
-    quality = Prompt.ask(
-        "Quality",
-        choices=["low", "medium", "high", "ultra"],
-        default="medium"
-    )
-    
-    # Hardware acceleration
-    use_hw = Confirm.ask("Use hardware acceleration?", default=False)
-    
-    # Confirm and run
-    console.print()
-    if Confirm.ask("Start render?", default=True):
-        # Build command
-        ctx = typer.Context(app)
-        render(
-            video=video,
-            device=device,
-            shadow=use_shadow,
-            intro=intro,
-            quality=Quality(quality),
-            hw=use_hw,
-        )
+    while True:
+        interactive_menu()
+        
+        choice = Prompt.ask("\n[cyan]>[/cyan] Select option", default="1")
+        
+        if choice.lower() in ['q', 'quit', 'exit']:
+            console.print("\n[dim]Goodbye![/dim]\n")
+            break
+        
+        if choice.lower() in ['h', 'help']:
+            console.print(Panel(
+                "[bold]Help[/bold]\n\n"
+                "• Use numbers or letters to select options\n"
+                "• Type 'b' or 'back' to go back\n"
+                "• Type 'q' to quit\n"
+                "• Drag and drop files to paste their path",
+                border_style="cyan"
+            ))
+            continue
+        
+        if choice == '1':
+            # Create Mockup flow
+            console.clear()
+            show_banner()
+            
+            video = select_video()
+            if not video:
+                continue
+            
+            device = select_device()
+            if not device:
+                continue
+            
+            effects = select_effects()
+            quality_settings = select_quality()
+            
+            if show_render_summary(video, device, effects, quality_settings):
+                console.print()
+                run_interactive_render(video, device, effects, quality_settings)
+                
+                console.print("\n[dim]Press Enter to continue...[/dim]")
+                input()
+            
+            console.clear()
+            show_banner()
+        
+        elif choice == '2':
+            # Batch process
+            console.print("\n[yellow]Batch processing coming soon![/yellow]")
+            console.print("[dim]For now, use: dejitech-mockup batch <directory>[/dim]\n")
+        
+        elif choice == '3':
+            # List devices
+            console.clear()
+            show_banner()
+            devices_list()
+            console.print("\n[dim]Press Enter to continue...[/dim]")
+            input()
+            console.clear()
+            show_banner()
+        
+        elif choice == '4':
+            # Presets
+            console.clear()
+            show_banner()
+            preset_list()
+            console.print("\n[dim]Press Enter to continue...[/dim]")
+            input()
+            console.clear()
+            show_banner()
+        
+        elif choice == '5':
+            # History
+            console.clear()
+            show_banner()
+            history()
+            console.print("\n[dim]Press Enter to continue...[/dim]")
+            input()
+            console.clear()
+            show_banner()
+        
+        elif choice == '6':
+            # Settings
+            console.print("\n[yellow]Settings coming soon![/yellow]\n")
 
 
 # ============================================================================
@@ -1267,7 +1614,7 @@ def version():
 
 
 # ============================================================================
-# Callback
+# Callback - Launch interactive by default
 # ============================================================================
 
 
@@ -1283,8 +1630,9 @@ def main_callback(
         version()
         raise typer.Exit()
     
+    # If no subcommand, launch interactive TUI
     if ctx.invoked_subcommand is None:
-        console.print(ctx.get_help())
+        run_interactive_tui()
 
 
 # ============================================================================

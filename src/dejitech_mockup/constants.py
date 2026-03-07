@@ -9,7 +9,7 @@ from enum import Enum
 # Version
 # ============================================================================
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 # ============================================================================
 # Defaults
@@ -17,10 +17,10 @@ __version__ = "2.0.0"
 
 DEFAULT_DEVICE = "s22"
 DEFAULT_BG_COLOR = "0x000000"
-DEFAULT_CRF = 23
-DEFAULT_FILL_PERCENT = 0.90
+DEFAULT_CRF = 18  # Higher quality default
+DEFAULT_FILL_PERCENT = 0.98  # Fill almost entire mockup
 DEFAULT_FPS = 30
-DEFAULT_AUDIO_BITRATE = "192k"
+DEFAULT_AUDIO_BITRATE = "256k"
 
 # ============================================================================
 # Paths
@@ -45,6 +45,7 @@ class Quality(str, Enum):
     MEDIUM = "medium"
     HIGH = "high"
     ULTRA = "ultra"
+    LOSSLESS = "lossless"
 
 
 class Resolution(str, Enum):
@@ -54,6 +55,7 @@ class Resolution(str, Enum):
     FHD = "1080p"
     QHD = "1440p"
     UHD = "4k"
+    UHD_PLUS = "5k"
     INSTAGRAM_STORY = "instagram-story"
     INSTAGRAM_REEL = "instagram-reel"
     TIKTOK = "tiktok"
@@ -132,7 +134,8 @@ QUALITY_CRF_MAP = {
     Quality.LOW: 28,
     Quality.MEDIUM: 23,
     Quality.HIGH: 18,
-    Quality.ULTRA: 15,
+    Quality.ULTRA: 12,
+    Quality.LOSSLESS: 0,
 }
 
 RESOLUTION_MAP = {
@@ -141,6 +144,7 @@ RESOLUTION_MAP = {
     Resolution.FHD: (1920, 1080),
     Resolution.QHD: (2560, 1440),
     Resolution.UHD: (3840, 2160),
+    Resolution.UHD_PLUS: (5120, 2880),
     Resolution.INSTAGRAM_STORY: (1080, 1920),
     Resolution.INSTAGRAM_REEL: (1080, 1920),
     Resolution.TIKTOK: (1080, 1920),
