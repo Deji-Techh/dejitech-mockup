@@ -696,10 +696,13 @@ def render(
             "preset": "ultrafast",
             "crf": crf_value,
             "pix_fmt": "yuv420p",
-            "profile:v": "high",
-            "level": "4.1",
             "movflags": "+faststart",
         })
+        # Only set profile for non-lossless encoding
+        # CRF 0 = lossless, which requires high444 profile or no profile constraint
+        if crf_value > 0:
+            output_args["profile:v"] = "high"
+            output_args["level"] = "4.1"
     
     if audio_stream is not None:
         output_args.update({
